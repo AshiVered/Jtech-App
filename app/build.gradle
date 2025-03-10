@@ -4,7 +4,7 @@ plugins {
 
 android {
     namespace 'com.ashivered.aiv.noamobile'
-    compileSdk 33
+    compileSdk 35
 
     defaultConfig {
         applicationId "com.ashivered.aiv.noamobile"
@@ -27,10 +27,6 @@ android {
         targetCompatibility JavaVersion.VERSION_1_8
     }
 }
-ext {
-    geckoviewChannel  = "nightly"
-    geckoviewVersion = "100.0.20220308100756"
-}
 
 dependencies {
 
@@ -40,6 +36,6 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
-    implementation "org.mozilla.geckoview:geckoview-${geckoviewChannel}:${geckoviewVersion}"
+    implementation 'org.mozilla.geckoview:geckoview:136.0.20250227124745'
 
 }

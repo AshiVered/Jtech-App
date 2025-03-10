@@ -26,7 +26,7 @@ public class MainActivity extends AppCompatActivity {
 
         session.open(sRuntime);
         view.setSession(session);
-        session.loadUri("https://noam.org.il"); // Or any other URL...
+        session.loadUri("https://www.jtechforums.org/"); // Or any other URL...
         
 
     }
