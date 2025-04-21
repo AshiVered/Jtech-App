@@ -20,7 +20,6 @@ import org.mozilla.geckoview.GeckoResult;
 import org.mozilla.geckoview.GeckoRuntime;
 import org.mozilla.geckoview.GeckoSession;
 import org.mozilla.geckoview.GeckoView;
-import org.mozilla.geckoview.WebExtension;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -33,44 +32,59 @@ import java.util.Set;
 public class MainActivity extends AppCompatActivity {
     private static GeckoRuntime sRuntime;
     private GeckoSession session;
+    private GeckoView geckoView;
+    private boolean canGoBack = false;
     private final Set<String> whitehosts = new HashSet<>();
-    private final String whitelistUrl = "https://ashivered.github.io/SafeBrowserResources/jtech.json"; // שים כאן את כתובת ה־JSON
+    private final String whitelistUrl = "https://ashivered.github.io/SafeBrowserResources/jtech.json";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        GeckoView view = findViewById(R.id.geckoview);
+        geckoView = findViewById(R.id.geckoview);
         session = new GeckoSession();
 
-        session.setContentDelegate(new GeckoSession.ContentDelegate() {});
+        // תוכן
+        session.setContentDelegate(new GeckoSession.ContentDelegate() {
+         ////   @Override
+            public void onExternalResponse(@NonNull GeckoSession session, @NonNull GeckoSession.WebResponseInfo response) {
+                // הורדה של קובץ
+                Uri uri = Uri.parse(response.uri);
+                Intent intent = new Intent(Intent.ACTION_VIEW);
+                intent.setDataAndType(uri, getMimeType(uri.toString()));
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+                try {
+                    startActivity(intent);
+                } catch (Exception e) {
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "אין אפליקציה מתאימה לפתיחת הקובץ", Toast.LENGTH_SHORT).show());
+                }
+            }
+        });
 
-
-
-        // ✅ הגבלת דומיינים
+        // ניווט
         session.setNavigationDelegate(new GeckoSession.NavigationDelegate() {
             @NonNull
             @Override
             public GeckoResult<AllowOrDeny> onLoadRequest(@NonNull GeckoSession session,
                                                           @NonNull LoadRequest request) {
-                String uri = request.uri;
                 try {
-                    URI parsedUri = new URI(uri);
-                    String host = parsedUri.getHost();
+                    URI uri = new URI(request.uri);
+                    String host = uri.getHost();
                     if (host != null && isHostAllowed(host)) {
                         return GeckoResult.allow();
                     } else {
-                        runOnUiThread(() -> Toast.makeText(
-                                MainActivity.this,
-                                "אתר זה חסום",
-                                Toast.LENGTH_SHORT
-                        ).show());
+                        runOnUiThread(() -> Toast.makeText(MainActivity.this, "אתר זה חסום", Toast.LENGTH_SHORT).show());
                         return GeckoResult.deny();
                     }
                 } catch (Exception e) {
                     e.printStackTrace();
                     return GeckoResult.deny();
                 }
+            }
+
+            @Override
+            public void onCanGoBack(@NonNull GeckoSession session, boolean canGoBackNow) {
+                canGoBack = canGoBackNow;
             }
         });
 
@@ -79,8 +93,9 @@ public class MainActivity extends AppCompatActivity {
         }
 
         session.open(sRuntime);
-        view.setSession(session);
+        geckoView.setSession(session);
 
+        // טען את רשימת ההיתרים
         loadWhitelist(() -> runOnUiThread(() ->
                 session.loadUri("https://www.jtechforums.org/")
         ));
@@ -89,7 +104,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean isHostAllowed(String host) {
         if (whitehosts.contains(host)) return true;
         for (String allowed : whitehosts) {
-            if (host.endsWith("." + allowed)) return true; // תמיכה ב-subdomains
+            if (host.endsWith("." + allowed)) return true;
         }
         return false;
     }
@@ -101,9 +116,7 @@ public class MainActivity extends AppCompatActivity {
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
 
-                BufferedReader in = new BufferedReader(
-                        new InputStreamReader(conn.getInputStream())
-                );
+                BufferedReader in = new BufferedReader(new InputStreamReader(conn.getInputStream()));
                 StringBuilder response = new StringBuilder();
                 String line;
 
@@ -113,16 +126,11 @@ public class MainActivity extends AppCompatActivity {
 
                 in.close();
                 parseWhitelistJson(response.toString());
-
                 new Handler(Looper.getMainLooper()).post(onSuccess);
 
             } catch (Exception e) {
                 Log.e("Whitelist", "שגיאה בטעינת הרשימה: " + e.getMessage());
-                runOnUiThread(() -> Toast.makeText(
-                        this,
-                        "שגיאה בטעינת הרשימה",
-                        Toast.LENGTH_LONG
-                ).show());
+                runOnUiThread(() -> Toast.makeText(this, "שגיאה בטעינת הרשימה", Toast.LENGTH_LONG).show());
             }
         }).start();
     }
@@ -137,14 +145,21 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // ✅ טיפול במקש חזור
-    // ✅ מקש חזור – פשוט חוזר אחורה בלי canGoBack()
+    private String getMimeType(String url) {
+        String type = null;
+        String extension = MimeTypeMap.getFileExtensionFromUrl(url);
+        if (extension != null) {
+            type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension);
+        }
+        return type != null ? type : "*/*";
+    }
+
     @Override
     public void onBackPressed() {
-        if (session != null) {
+        if (canGoBack) {
             session.goBack();
         } else {
-            super.onBackPressed();
+            super.onBackPressed(); // סוגר את האפליקציה
         }
     }
 }
