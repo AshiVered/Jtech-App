@@ -16,3 +16,9 @@ The URL for the JSON file that contains the domain whitelist can be found in
 - Add handling for opening internal Jtech forum links  
 
 This repo is licensed under the **GNU General Public License v3.0 (GPL-3.0)**.
+
+
+
+if you like my work, please buy me a coffe
+https://ko-fi.com/ashivered
+
