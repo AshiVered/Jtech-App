@@ -1,4 +1,4 @@
-package com.ashivered.aiv.noamobile;
+package com.ashivered.aiv.jtech;
 
 import android.content.Intent;
 import android.net.Uri;
@@ -56,7 +56,7 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     startActivity(intent);
                 } catch (Exception e) {
-                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "אין אפליקציה מתאימה לפתיחת הקובץ", Toast.LENGTH_SHORT).show());
+                    runOnUiThread(() -> Toast.makeText(MainActivity.this, "No app match for this file", Toast.LENGTH_SHORT).show());
                 }
             }
         });
@@ -73,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
                     if (host != null && isHostAllowed(host)) {
                         return GeckoResult.allow();
                     } else {
-                        runOnUiThread(() -> Toast.makeText(MainActivity.this, "אתר זה חסום", Toast.LENGTH_SHORT).show());
+                        runOnUiThread(() -> Toast.makeText(MainActivity.this, "This site is blocked", Toast.LENGTH_SHORT).show());
                         return GeckoResult.deny();
                     }
                 } catch (Exception e) {
@@ -97,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
 
         // טען את רשימת ההיתרים
         loadWhitelist(() -> runOnUiThread(() ->
-                session.loadUri("https://www.jtechforums.org/")
+                session.loadUri("https://forums.jtechforums.org/")
         ));
     }
 
@@ -129,8 +129,8 @@ public class MainActivity extends AppCompatActivity {
                 new Handler(Looper.getMainLooper()).post(onSuccess);
 
             } catch (Exception e) {
-                Log.e("Whitelist", "שגיאה בטעינת הרשימה: " + e.getMessage());
-                runOnUiThread(() -> Toast.makeText(this, "שגיאה בטעינת הרשימה", Toast.LENGTH_LONG).show());
+                Log.e("Whitelist", "Error while loading list: " + e.getMessage());
+                runOnUiThread(() -> Toast.makeText(this, "Error while loading list", Toast.LENGTH_LONG).show());
             }
         }).start();
     }
