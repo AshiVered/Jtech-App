@@ -5,7 +5,7 @@ Many of them use non-standard Android devices, such as the **TCL Flip 2**.
 WebView-based applications often do not function properly on these devices, so this app uses **GeckoView** as its web rendering engine.
 
 This application is **whitelist-based**: it only allows access to pre-approved websites.  
-The whitelist is managed remotely and can be updated over-the-air (OTA).
+The whitelist is managed remotely and can be updated over-the-air.
 
 The URL for the JSON file that contains the domain whitelist can be found in  
 `MainActivity.java`, line 38.
