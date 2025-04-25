@@ -46,7 +46,7 @@ public class MainActivity extends AppCompatActivity {
 
         // תוכן
         session.setContentDelegate(new GeckoSession.ContentDelegate() {
-         ////   @Override
+            ////   @Override
             public void onExternalResponse(@NonNull GeckoSession session, @NonNull GeckoSession.WebResponseInfo response) {
                 // הורדה של קובץ
                 Uri uri = Uri.parse(response.uri);

@@ -16,26 +16,52 @@ android {
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    buildTypes {
-        release {
-            minifyEnabled false
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+    // ✅ הוספת ABI Splits (למשקל קטן)
+    splits {
+        abi {
+            enable true
+            reset()
+            include 'armeabi-v7a', 'arm64-v8a', 'x86', 'x86_64'
+            universalApk true
         }
     }
+
+    // ✅ הפעלת ProGuard ודחיסת משאבים (חובה)
+    buildTypes {
+        release {
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+        debug {
+            // השאר את זה כבוי לדיבוג
+            minifyEnabled false
+            shrinkResources false
+        }
+    }
+
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8
         targetCompatibility JavaVersion.VERSION_1_8
     }
+
+    // ✅ הפעלת zipAlign לדחיסה מיטבית
+    buildToolsVersion = "34.0.0"
+    packagingOptions {
+        resources {
+            excludes += ['META-INF/LICENSE', 'META-INF/NOTICE'] // הסרת קבצים מיותרים
+        }
+    }
 }
 
 dependencies {
-
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.9.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'
-    implementation 'org.mozilla.geckoview:geckoview:136.0.20250227124745'
 
+    // ✅ ודא שאתה לא משתמש ב־geckoview-fat:
+    implementation 'org.mozilla.geckoview:geckoview:136.0.20250227124745'
 }
