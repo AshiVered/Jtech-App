@@ -34,6 +34,13 @@ import android.webkit.URLUtil;
 import android.content.Context;
 import org.mozilla.geckoview.WebResponse;
 import android.webkit.CookieManager;
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import android.webkit.MimeTypeMap;
+import android.webkit.URLUtil;
+
 
 public class MainActivity extends AppCompatActivity {
     private static GeckoRuntime sRuntime;
@@ -53,11 +60,10 @@ public class MainActivity extends AppCompatActivity {
         session.setContentDelegate(new GeckoSession.ContentDelegate() {
             @Override
             public void onExternalResponse(@NonNull GeckoSession session, @NonNull WebResponse response) {
-                // בגרסאות החדשות המידע נמצא ב-headers
-                String contentType = response.headers.get("Content-Type");
                 String contentDisposition = response.headers.get("Content-Disposition");
+                String contentType = response.headers.get("Content-Type");
 
-                // קריאה לפונקציית ההורדה שיצרנו מקודם
+                // שליחה להורדה
                 downloadFile(response.uri, contentDisposition, contentType);
             }
         });
@@ -96,45 +102,27 @@ public class MainActivity extends AppCompatActivity {
         session.open(sRuntime);
         geckoView.setSession(session);
 
-        // טען את רשימת ההיתרים
+        // טען את הרשימה הלבנה ולאחריה את הקישור הראשי
         loadWhitelist(() -> runOnUiThread(() ->
                 session.loadUri("https://forums.jtechforums.org/")
         ));
     }
     private void downloadFile(String url, String contentDisposition, String mimeType) {
-        // 1. בדיקה שזו כתובת תקינה (DownloadManager לא תומך ב-blob)
-        if (url.startsWith("blob:") || url.startsWith("data:")) {
-            Toast.makeText(this, "הורדת קבצים מסוג BLOB עדיין לא נתמכת", Toast.LENGTH_LONG).show();
-            Log.e("GeckoDownload", "Cannot download blob/data url with DownloadManager");
-            return;
-        }
+        if (url.startsWith("blob:") || url.startsWith("data:")) return;
 
         try {
-            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
+            String filename = getBestFileName(url, contentDisposition, mimeType);
 
-            // 2. הגדרת סוג הקובץ
+            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
             request.setMimeType(mimeType);
 
-            // 3. הוספת עוגיות (Cookies) כדי לאפשר הורדה מאתרים מוגנים
-            // הערה: ב-GeckoView זה מורכב יותר, אך לעיתים ה-CookieManager הכללי תופס חלק מהמידע.
             String cookies = CookieManager.getInstance().getCookie(url);
-            if (cookies != null) {
-                request.addRequestHeader("Cookie", cookies);
-            }
-
-            // 4. הוספת User-Agent (קריטי!)
-            // זה גורם לשרת לחשוב שהבקשה מגיעה מדפדפן אמיתי ולא מסתם בוט
+            if (cookies != null) request.addRequestHeader("Cookie", cookies);
             request.addRequestHeader("User-Agent", "Mozilla/5.0 (Android 13; Mobile; rv:109.0) Gecko/109.0 Firefox/109.0");
 
-            // 5. ניחוש שם הקובץ
-            String filename = URLUtil.guessFileName(url, contentDisposition, mimeType);
             request.setTitle(filename);
-            request.setDescription("Downloading file...");
             request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
             request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, filename);
-
-            // וידוא שההורדה מתבצעת גם ב-WiFi וגם בנתונים סלולריים
-            request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI | DownloadManager.Request.NETWORK_MOBILE);
 
             DownloadManager dm = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
             if (dm != null) {
@@ -142,8 +130,7 @@ public class MainActivity extends AppCompatActivity {
                 Toast.makeText(this, "Downloading: " + filename, Toast.LENGTH_SHORT).show();
             }
         } catch (Exception e) {
-            Log.e("GeckoDownload", "Download failed", e);
-            Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_LONG).show();
+            Toast.makeText(this, "Error: " + e.getMessage(), Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -189,6 +176,85 @@ public class MainActivity extends AppCompatActivity {
             String host = obj.getString("host");
             whitehosts.add(host.toLowerCase());
         }
+    }
+    private String getBestFileName(String url, String contentDisposition, String mimeType) {
+        String filename = null;
+
+        if (contentDisposition != null && !contentDisposition.isEmpty()) {
+            // שלב 1: פירוק ה-Header לחלקים לפי נקודה-פסיק
+            String[] parts = contentDisposition.split(";");
+
+            // חיפוש filename*
+            for (String part : parts) {
+                part = part.trim();
+                if (part.toLowerCase().startsWith("filename*=")) {
+                    // חותך את ה- filename*=
+                    String encodedName = part.substring(10);
+
+                    // טיפול ב-UTF-8''
+                    if (encodedName.toLowerCase().startsWith("utf-8''")) {
+                        encodedName = encodedName.substring(7); // מדלג על UTF-8''
+                    }
+
+                    try {
+                        filename = URLDecoder.decode(encodedName, "UTF-8");
+                    } catch (Exception e) {
+                        filename = encodedName;
+                    }
+                    break;
+                }
+            }
+
+            // אם לא מצאנו filename*, נחפש את filename הרגיל
+            if (filename == null) {
+                for (String part : parts) {
+                    part = part.trim();
+                    if (part.toLowerCase().startsWith("filename=")) {
+                        String name = part.substring(9);
+                        // מנקה מרכאות אם יש ("name.pdf")
+                        name = name.replace("\"", "").replace("'", "");
+                        if (!name.isEmpty()) {
+                            filename = name;
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+
+        // שלב 2: אם השרת לא שלח כלום, לוקחים מה-URL
+        if (filename == null || filename.trim().isEmpty()) {
+            String decodedUrl;
+            try {
+                decodedUrl = URLDecoder.decode(url, "UTF-8");
+            } catch (Exception e) {
+                decodedUrl = url;
+            }
+
+            // ניקוי פרמטרים (?id=...)
+            if (decodedUrl.contains("?")) {
+                decodedUrl = decodedUrl.substring(0, decodedUrl.indexOf("?"));
+            }
+
+            if (!decodedUrl.endsWith("/")) {
+                filename = decodedUrl.substring(decodedUrl.lastIndexOf('/') + 1);
+            }
+        }
+
+        // שלב 3: רשת ביטחון של אנדרואיד
+        if (filename == null || filename.trim().isEmpty()) {
+            filename = URLUtil.guessFileName(url, contentDisposition, mimeType);
+        }
+
+        // שלב 4: וידוא סיומת
+        if (filename != null && !filename.contains(".")) {
+            String extension = MimeTypeMap.getSingleton().getExtensionFromMimeType(mimeType);
+            if (extension != null) {
+                filename = filename + "." + extension;
+            }
+        }
+
+        return filename;
     }
 
     private String getMimeType(String url) {
